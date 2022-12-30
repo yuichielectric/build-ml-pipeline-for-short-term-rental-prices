@@ -6,6 +6,8 @@ import argparse
 import logging
 import wandb
 import pandas as pd
+import tempfile
+import os
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)-15s %(message)s")
@@ -32,17 +34,22 @@ def go(args):
     logger.info("Convert last_review to datetime")
     df['last_review'] = pd.to_datetime(df['last_review'])
 
-    logger.info("Save artifact")
-    df.to_csv(args.output_artifact, index=False)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        temp_path = os.path.join(tmp_dir, args.output_artifact)
 
-    logger.info("Upload artifact")
-    artifact = wandb.Artifact(
-        name=args.output_artifact,
-        type=args.output_type,
-        description=args.output_description
-    )
-    artifact.add_file(args.output_artifact)
-    run.log_artifact(artifact)
+        logger.info("Save artifact")
+        df.to_csv(temp_path, index=False)
+
+        logger.info("Upload artifact")
+        artifact = wandb.Artifact(
+            name=args.output_artifact,
+            type=args.output_type,
+            description=args.output_description
+        )
+        artifact.add_file(temp_path)
+        run.log_artifact(artifact)
+
+        artifact.wait()
 
 
 if __name__ == "__main__":
